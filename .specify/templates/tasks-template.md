@@ -49,25 +49,25 @@
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
-- [ ] T004 [P] Contract test POST /api/users in tests/contract/test_users_post.py
-- [ ] T005 [P] Contract test GET /api/users/{id} in tests/contract/test_users_get.py
-- [ ] T006 [P] Integration test user registration in tests/integration/test_registration.py
-- [ ] T007 [P] Integration test auth flow in tests/integration/test_auth.py
+- [ ] T004 [P] Security test SQL injection prevention in tests/security/test_sql_injection.py
+- [ ] T005 [P] Contract test SQL validation in tests/contract/test_sql_validation.py
+- [ ] T006 [P] Integration test database security in tests/integration/test_db_security.py
+- [ ] T007 [P] Integration test query sanitization in tests/integration/test_query_sanitization.py
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
-- [ ] T008 [P] User model in src/models/user.py
-- [ ] T009 [P] UserService CRUD in src/services/user_service.py
-- [ ] T010 [P] CLI --create-user in src/cli/user_commands.py
-- [ ] T011 POST /api/users endpoint
-- [ ] T012 GET /api/users/{id} endpoint
-- [ ] T013 Input validation
-- [ ] T014 Error handling and logging
+- [ ] T008 [P] SQL validator model in src/models/sql_validator.py
+- [ ] T009 [P] SecurityService SQL analysis in src/services/security_service.py
+- [ ] T010 [P] CLI --validate-sql in src/cli/security_commands.py
+- [ ] T011 SQL injection detection endpoint
+- [ ] T012 Query sanitization endpoint
+- [ ] T013 Security input validation
+- [ ] T014 Security event logging and error handling
 
 ## Phase 3.4: Integration
-- [ ] T015 Connect UserService to DB
-- [ ] T016 Auth middleware
-- [ ] T017 Request/response logging
-- [ ] T018 CORS and security headers
+- [ ] T015 Connect SecurityService to database
+- [ ] T016 Security middleware for SQL operations
+- [ ] T017 Security event logging and audit trails
+- [ ] T018 Security headers and CORS configuration
 
 ## Phase 3.5: Polish
 - [ ] T019 [P] Unit tests for validation in tests/unit/test_validation.py

@@ -47,7 +47,11 @@
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] Security-First Design: All SQL operations validated and sanitized
+- [ ] CLI Interface: Feature exposes CLI with text I/O protocol
+- [ ] Test-First: Security tests written before implementation
+- [ ] Integration Testing: SQL injection prevention and validation tests planned
+- [ ] Observability: Security event logging and audit trails designed
 
 ## Project Structure
 
