@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: SQL-Guard Query Execution API
+  version: 1.0.0
+  description: SQL query execution endpoints
+
+paths:
+  /api/queries/execute:
+    post:
+      summary: Execute SQL query
+      tags: [Queries]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sql:
+                  type: string
+                  description: SQL query to execute
+                database_id:
+                  type: string
+                  format: uuid
+                  description: Target database connection
+                parameters:
+                  type: object
+                  description: Query parameters
+                timeout:
+                  type: integer
+                  description: Query timeout in seconds
+              required: [sql, database_id]
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query_id:
+                    type: string
+                    format: uuid
+                  results:
+                    type: array
+                    items:
+                      type: object
+                  columns:
+                    type: array
+                    items:
+                      type: string
+                  row_count:
+                    type: integer
+                  execution_time:
+                    type: number
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid query or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+        '408':
+          description: Query timeout
+        '500':
+          description: Database error
+
+  /api/queries/{query_id}/status:
+    get:
+      summary: Get query execution status
+      tags: [Queries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Query status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [RUNNING, COMPLETED, FAILED, TIMEOUT]
+                  progress:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                  message:
+                    type: string
+        '404':
+          description: Query not found
+
+  /api/queries/validate:
+    post:
+      summary: Validate SQL query without execution
+      tags: [Queries]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sql:
+                  type: string
+                  description: SQL query to validate
+                database_id:
+                  type: string
+                  format: uuid
+                  description: Target database connection
+              required: [sql, database_id]
+      responses:
+        '200':
+          description: Query validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_valid:
+                    type: boolean
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                  estimated_cost:
+                    type: number
+                  security_checks:
+                    type: object
+                    properties:
+                      has_ddl:
+                        type: boolean
+                      has_dml:
+                        type: boolean
+                      has_where_clause:
+                        type: boolean
+                      parameter_count:
+                        type: integer
+        '400':
+          description: Invalid request
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

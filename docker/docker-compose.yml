@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for production queries
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sqlguard_prod
+      POSTGRES_USER: sqlguard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sqlguard_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqlguard -d sqlguard_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL database for audit logs
+  postgres_audit:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sqlguard_audit
+      POSTGRES_USER: sqlguard_audit
+      POSTGRES_PASSWORD: ${AUDIT_POSTGRES_PASSWORD:-audit_dev}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_audit_data:/var/lib/postgresql/data
+      - ./init-audit-db.sql:/docker-entrypoint-initdb.d/init-audit-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqlguard_audit -d sqlguard_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgbouncer for connection pooling
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_USER: sqlguard
+      DATABASES_PASSWORD: ${POSTGRES_PASSWORD:-sqlguard_dev}
+      DATABASES_DBNAME: sqlguard_prod
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak for OIDC authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: sqlguard
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-sqlguard_dev}
+    ports:
+      - "8080:8080"
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    environment:
+      DATABASE_URL: postgresql://sqlguard:${POSTGRES_PASSWORD:-sqlguard_dev}@pgbouncer:6432/sqlguard_prod
+      AUDIT_DATABASE_URL: postgresql://sqlguard_audit:${AUDIT_POSTGRES_PASSWORD:-audit_dev}@postgres_audit:5432/sqlguard_audit
+      REDIS_URL: redis://redis:6379
+      OIDC_CLIENT_ID: sql-guard
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-sql-guard-secret}
+      OIDC_ISSUER_URL: http://keycloak:8080/realms/sql-guard
+      VAULT_URL: ${VAULT_URL:-http://vault:8200}
+      VAULT_TOKEN: ${VAULT_TOKEN:-dev-token}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres_audit:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  postgres_audit_data:
+  redis_data:

@@ -1,0 +1,292 @@
+openapi: 3.0.3
+info:
+  title: SQL-Guard Template Management API
+  version: 1.0.0
+  description: SQL template management endpoints
+
+paths:
+  /api/templates:
+    get:
+      summary: List SQL templates
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED]
+        - name: created_by
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SQLTemplate'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Create new SQL template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                sql_content:
+                  type: string
+                parameters:
+                  type: object
+                require_approval:
+                  type: boolean
+                  default: true
+              required: [name, sql_content]
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SQLTemplate'
+        '400':
+          description: Invalid template data
+        '401':
+          description: Unauthorized
+        '409':
+          description: Template name already exists
+
+  /api/templates/{template_id}:
+    get:
+      summary: Get SQL template by ID
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Template retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SQLTemplate'
+        '404':
+          description: Template not found
+        '401':
+          description: Unauthorized
+
+    put:
+      summary: Update SQL template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                sql_content:
+                  type: string
+                parameters:
+                  type: object
+              required: [name, sql_content]
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SQLTemplate'
+        '400':
+          description: Invalid template data
+        '404':
+          description: Template not found
+        '401':
+          description: Unauthorized
+
+    delete:
+      summary: Delete SQL template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted successfully
+        '404':
+          description: Template not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/templates/{template_id}/execute:
+    post:
+      summary: Execute SQL template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                database_id:
+                  type: string
+                  format: uuid
+                parameters:
+                  type: object
+                timeout:
+                  type: integer
+              required: [database_id, parameters]
+      responses:
+        '200':
+          description: Template executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query_id:
+                    type: string
+                    format: uuid
+                  results:
+                    type: array
+                    items:
+                      type: object
+                  columns:
+                    type: array
+                    items:
+                      type: string
+                  row_count:
+                    type: integer
+                  execution_time:
+                    type: number
+        '400':
+          description: Invalid parameters
+        '403':
+          description: Template not approved or insufficient permissions
+        '404':
+          description: Template not found
+
+components:
+  schemas:
+    SQLTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        sql_content:
+          type: string
+        parameters:
+          type: object
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED]
+        created_by:
+          type: string
+          format: uuid
+        approved_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        approved_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

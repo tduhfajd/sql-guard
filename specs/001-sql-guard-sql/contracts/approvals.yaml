@@ -1,0 +1,280 @@
+openapi: 3.0.3
+info:
+  title: SQL-Guard Approval Management API
+  version: 1.0.0
+  description: Template approval workflow endpoints
+
+paths:
+  /api/approvals:
+    get:
+      summary: List pending approval requests
+      tags: [Approvals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - name: assigned_to
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Approval requests retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApprovalRequest'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Submit template for approval
+      tags: [Approvals]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template_id:
+                  type: string
+                  format: uuid
+                assigned_to:
+                  type: string
+                  format: uuid
+                comments:
+                  type: string
+              required: [template_id, assigned_to]
+      responses:
+        '201':
+          description: Approval request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+        '400':
+          description: Invalid request data
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/approvals/{approval_id}:
+    get:
+      summary: Get approval request by ID
+      tags: [Approvals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approval request retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+        '404':
+          description: Approval request not found
+        '401':
+          description: Unauthorized
+
+    put:
+      summary: Approve or reject template
+      tags: [Approvals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [APPROVE, REJECT]
+                comments:
+                  type: string
+              required: [action]
+      responses:
+        '200':
+          description: Approval decision processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+        '400':
+          description: Invalid request data
+        '404':
+          description: Approval request not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/approvals/{approval_id}/preview:
+    get:
+      summary: Preview SQL template with parameters
+      tags: [Approvals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: parameters
+          in: query
+          schema:
+            type: object
+            description: Template parameters for preview
+      responses:
+        '200':
+          description: SQL preview generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rendered_sql:
+                    type: string
+                  parameter_values:
+                    type: object
+                  estimated_cost:
+                    type: number
+                  security_analysis:
+                    type: object
+                    properties:
+                      has_ddl:
+                        type: boolean
+                      has_dml:
+                        type: boolean
+                      has_where_clause:
+                        type: boolean
+                      risk_level:
+                        type: string
+                        enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        '404':
+          description: Approval request not found
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    ApprovalRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        template:
+          $ref: '#/components/schemas/SQLTemplate'
+        requested_by:
+          type: string
+          format: uuid
+        assigned_to:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        comments:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+
+    SQLTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        sql_content:
+          type: string
+        parameters:
+          type: object
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED]
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
