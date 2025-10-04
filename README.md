@@ -1,170 +1,200 @@
-Быстрый старт (5 минут для проверяющего)
+# SQL-Guard
 
-Предусловия
-	•	Docker + Docker Compose
-	•	make, git
-	•	(опц.) Node 18+/pnpm для фронта локально
-	•	(опц.) curl, jq
+Secure SQL execution platform for PostgreSQL with access control, auditing, and approval workflows.
 
-1) Клонирование
+## 🚀 Quick Start
 
-git clone git@github.com:tduhfajd/sql-guard.git
-cd sql-guard
+### Prerequisites
 
-2) Поднять инфраструктуру
+- Docker and Docker Compose
+- Python 3.9+
+- Node.js 18+
+- Make
 
-Поднимем Keycloak, pgbouncer, БД аудита и т.п.:
+### Installation
 
-make up         # эквивалент docker compose up -d
-# Подождать 10–20 сек, пока сервисы прогреются
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/tduhfajd/sql-guard.git
+   cd sql-guard
+   ```
 
-Проверка статуса:
+2. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env file with your configuration
+   ```
 
-docker compose ps
+3. **Start the infrastructure:**
+   ```bash
+   make up
+   ```
 
-3) Запуск бекенда и фронтенда (dev)
+4. **Start the development servers:**
+   ```bash
+   # Terminal 1 - Backend
+   make dev-backend
+   
+   # Terminal 2 - Frontend  
+   make dev-frontend
+   ```
 
-В двух отдельных терминалах:
+5. **Access the application:**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
 
-make dev-backend   # uvicorn api.app:app --reload (порт, напр., 8000)
+## 🏗️ Architecture
 
-make dev-frontend  # vite dev (порт, напр., 5173)
+### Services
 
-URL’ы:
-	•	Backend OpenAPI: http://localhost:8000/docs
-	•	Frontend: http://localhost:5173
+- **Backend (FastAPI)**: REST API with authentication, RBAC, and SQL execution
+- **Frontend (React + Vite)**: Modern web interface with TypeScript
+- **PostgreSQL**: Main database for application data
+- **PostgreSQL Audit**: Separate database for audit logs
+- **Redis**: Caching and session storage
+- **Keycloak**: OIDC authentication (optional)
+- **pgbouncer**: Connection pooling
 
-4) Быстрая авторизация (dev-режим)
+### Key Features
 
-Для демо доступен dev-auth (без реального OIDC) — одна из опций:
+- 🔐 **Role-Based Access Control (RBAC)**
+- 📝 **SQL Template Management**
+- ✅ **Approval Workflows**
+- 📊 **Audit Logging**
+- 🛡️ **Security Policies**
+- 🎯 **Query Validation**
+- 📈 **Performance Monitoring**
 
-export SQL_GUARD_DEV_AUTH=1
-# (если используется .env — уже включено)
+## 🛠️ Development
 
-Создадим пользователей и роли через CLI:
+### Backend Development
 
-# admin
-make cli ARGS='admin users create --email admin@demo --name "Admin" --roles admin,approver,operator'
-# viewer
-make cli ARGS='admin users create --email viewer@demo --name "Viewer" --roles viewer'
-# operator
-make cli ARGS='admin users create --email operator@demo --name "Operator" --roles operator'
+```bash
+cd backend
+pip install -r requirements.txt
+python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-(В dev-режиме UI даст выбрать пользователя из выпадающего списка «Login as …» или токен будет подставлен автоматически.)
+### Frontend Development
 
-5) Демо-сценарий (3 минуты)
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-5.1 Консоль SELECT (безопасный режим)
-	1.	Открыть SQL Console.
-	2.	Выбрать БД stage_analytics (или alias из списка).
-	3.	Ввести запрос:
+### Database Setup
 
-SELECT id, email, created_at FROM users ORDER BY created_at DESC;
+The project includes demo data:
+- Users table with sample users
+- Orders table with sample orders
+- Audit logs table for tracking
 
+### Environment Configuration
 
-	4.	Нажать Execute.
-Ожидаемо:
-	•	авто-LIMIT (напр., 1000) сработает, если не указан LIMIТ;
-	•	результат с маскированием e-mail (для Viewer/Operator).
+Key environment variables:
 
-5.2 Шаблон и апрув (боевой сценарий)
-	1.	Зайти в Templates → Create (под админом) и добавить шаблон:
-	•	name: update_order_status
-	•	sql:
+```bash
+# Database
+POSTGRES_PASSWORD=sqlguard_dev
+AUDIT_POSTGRES_PASSWORD=audit_dev
 
-UPDATE orders SET status = :new_status WHERE id = :order_id
+# Authentication
+DEV_AUTH=1  # Use dev authentication (no Keycloak)
+OIDC_CLIENT_SECRET=sql-guard-secret
 
+# Application
+DEBUG=true
+LOG_LEVEL=INFO
+```
 
-	•	params: order_id:int required, new_status:str enum[pending,paid,cancelled]
-	•	requires_approval: true
+## 📋 Available Commands
 
-	2.	Переключиться на Operator, открыть шаблон → Run:
-	•	db: prod_billing
-	•	params: { "order_id": 12345, "new_status": "paid" }
-	•	результат: создана заявка (PENDING).
-	3.	Переключиться на Approver/Admin, раздел Approvals:
-	•	открыть заявку, проверить SQL-превью, нажать Approve.
-	•	результат: статус EXECUTED OK, 1 строка изменена.
-	4.	Открыть Audit:
-	•	фильтр по пользователю/БД → видно событие, masked-поля, длительность, строки.
+```bash
+make up              # Start infrastructure (Docker)
+make down            # Stop infrastructure
+make dev-backend     # Start backend in development mode
+make dev-frontend    # Start frontend in development mode
+make test            # Run tests
+make lint            # Run linting
+make cli             # Access CLI tools
+```
 
-6) API «на ощупь» (curl)
+## 🔧 Configuration
 
-Получить список шаблонов (пример):
+### Database Connections
 
-TOKEN="$(make print-dev-token)"          # утилита для dev-токена, если есть
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/api/templates
+Add database aliases through CLI:
 
-Выполнить SELECT:
+```bash
+make cli ARGS='admin db add --alias stage_analytics --host 127.0.0.1 --port 6432 --dbname stage_analytics --role-mapping read_only'
+```
 
-curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"db_id":"stage_analytics","sql":"SELECT id, email FROM users ORDER BY id DESC","params":{}}' \
-  http://localhost:8000/api/queries/execute | jq .
+### Security Policies
 
-Экспорт аудита:
+Set default policies:
 
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/audit/export?format=csv&from=2025-10-01&to=2025-10-03" -o audit.csv
-
-7) Политики безопасности (быстрая проверка)
-
-Установим таймаут и авто-LIMIT для роли operator:
-
+```bash
 make cli ARGS='admin policy set --scope role --ref operator --key statement_timeout_ms --value 30000'
 make cli ARGS='admin policy set --scope role --ref operator --key auto_limit --value true'
-make cli ARGS='admin policy set --scope role --ref operator --key max_rows --value 1000'
+make cli ARGS='admin policy set --scope global --ref _ --key blocklist --value UPDATE,DELETE,DROP,ALTER,CREATE'
+```
 
-Проверка блок-листа (попытка DDL в консоли должна блокироваться):
+## 🧪 Testing
 
-DROP TABLE users;   -- UI disable, API -> {"error":"BLOCKED_BY_POLICY",...}
+### Smoke Test Scenario
 
-Проверка запрета UPDATE/DELETE без WHERE (для шаблонов):
-	•	Попробовать сохранить шаблон без WHERE → должно отклониться валидатором.
+1. **Create users:**
+   ```bash
+   make cli ARGS='admin users create --email admin@demo --name "Admin" --roles admin,approver,operator'
+   make cli ARGS='admin users create --email operator@demo --name "Operator" --roles operator'
+   make cli ARGS='admin users create --email viewer@demo --name "Viewer" --roles viewer'
+   ```
 
-8) Тесты за 1 команду
+2. **Test SQL Console:**
+   - Open Console → select database
+   - Execute: `SELECT id, email, created_at FROM users ORDER BY created_at DESC;`
+   - Verify auto-limit and timeout work
 
-make test-backend   # pytest
-make test-frontend  # unit-тесты фронта
-make test-e2e       # Playwright: логин → SELECT → шаблон → апрув → аудит
+3. **Test Template Workflow:**
+   - Create template with approval requirement
+   - Submit for approval
+   - Approve and execute
+   - Check audit logs
 
-9) Полезные make-цели
+## 📚 API Documentation
 
-make up            # docker compose up -d
-make down          # docker compose down -v
-make dev-backend   # локальный backend
-make dev-frontend  # локальный frontend
-make fmt           # black + isort + flake8 / prettier+eslint
-make lint
-make cli ARGS='...'# обёртка над CLI (typer/click)
+Full API documentation is available at http://localhost:8000/docs when the backend is running.
 
-10) Коллекция API
+### Key Endpoints
 
-Postman/Thunder Client коллекция:
+- `GET /auth/health` - Authentication service health
+- `POST /auth/login` - User login
+- `GET /api/templates/` - List templates
+- `POST /api/queries/execute` - Execute SQL query
+- `GET /api/audit/` - Get audit logs
 
-/tools/api-collection.json
+## 🔒 Security
 
-Импортируйте и используйте готовые запросы: auth, queries, templates, approvals, audit, policies.
+- All SQL queries are validated before execution
+- DDL operations are blocked by default
+- Sensitive data is masked based on user roles
+- All actions are logged for audit
+- Connection pooling prevents resource exhaustion
 
-⸻
+## 📝 License
 
-Ожидаемые проверки (чек-лист для приёмки)
-	•	Авторизация: вход в dev-режиме работает; роли ограничивают видимость разделов.
-	•	Консоль: произвольные SELECT выполняются, DDL/DML блокируются, авто-LIMIT и таймаут работают.
-	•	Шаблоны: создаются/версируются, параметры валидируются; на prod — только через апрув.
-	•	Апрув: заявка видна в очереди, есть SQL-превью, approve/ reject с комментарием, после approve — исполнение.
-	•	Аудит: всё логируется (кто/когда/что/БД/строки/длительность/статус), экспорт работает, PII маскировано.
-	•	Политики: через CLI/админку меняются, реально применяются рантаймом (timeout/limit/blocklist/require-WHERE/mask).
-	•	Иммутабельность журнала: записи аудита не редактируются.
-	•	Тесты: базовый набор проходит (backend/e2e).
+This project is licensed under the MIT License.
 
-⸻
+## 🤝 Contributing
 
-Частые проблемы и быстрые решения
-	•	Пусто в списке БД → проверь .env/конфиг с alias и доступностью stage_*/prod_*.
-	•	Не открывается фронт → порт 5173 занят; поменяй VITE_PORT или закрой другой процесс.
-	•	Auth не пускает → включи dev-auth SQL_GUARD_DEV_AUTH=1 или проверь Keycloak realm/clients.
-	•	DDL не блокируется → проверь политики blocklist и включён ли AST-валидатор.
-	•	Нет маскирования → убедись, что в политиках задан mask_columns и роль не security/admin.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-⸻
+## 📞 Support
+
+For issues and questions, please create an issue in the GitHub repository.
