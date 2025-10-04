@@ -2,6 +2,7 @@
 Authentication API endpoints for SQL-Guard application
 Handles login, logout, token refresh, and OIDC integration
 """
+from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

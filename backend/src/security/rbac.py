@@ -2,7 +2,7 @@
 Role-Based Access Control (RBAC) service for SQL-Guard application
 Manages user permissions and access control
 """
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Any
 from enum import Enum
 from dataclasses import dataclass
 

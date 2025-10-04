@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { Toaster } from '@/components/ui/toaster'
-import { AuthProvider } from '@/hooks/useAuth'
+import { AuthProvider } from '@/hooks/useAuth.tsx'
 import Layout from '@/components/Layout'
 import Console from '@/pages/Console'
 import Templates from '@/pages/Templates'

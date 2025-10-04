@@ -229,27 +229,27 @@ class SQLValidator:
 
     def _has_ddl_statements(self, statement) -> bool:
         """Check if statement contains DDL keywords"""
-        tokens = [token.ttype, token.value.upper() for token in statement.flatten()]
+        tokens = [token.value.upper() if token.value else None for token in statement.flatten()]
         
-        for i, token in enumerate(tokens):
-            if token[1] in self.ddl_keywords:
+        for token in tokens:
+            if token in self.ddl_keywords:
                 return True
                 
         return False
 
     def _has_dml_statements(self, statement) -> bool:
         """Check if statement contains DML keywords"""
-        tokens = [token.ttype, token.value.upper() for token in statement.flatten()]
+        tokens = [token.value.upper() if token.value else None for token in statement.flatten()]
         
-        for i, token in enumerate(tokens):
-            if token[1] in self.dml_keywords:
+        for token in tokens:
+            if token in self.dml_keywords:
                 return True
                 
         return False
 
     def _has_where_clause(self, statement) -> bool:
         """Check if statement has WHERE clause"""
-        tokens = [token.value.upper() for token in statement.flatten()]
+        tokens = [token.value.upper() if token.value else None for token in statement.flatten()]
         return 'WHERE' in tokens
 
     def _count_parameters(self, sql: str) -> int:
@@ -295,7 +295,7 @@ class SQLValidator:
     def _estimate_query_cost(self, statement) -> float:
         """Estimate query execution cost"""
         # Simple cost estimation based on query complexity
-        tokens = [token.value.upper() for token in statement.flatten()]
+        tokens = [token.value.upper() if token.value else None for token in statement.flatten()]
         
         cost = 1.0
         
@@ -394,7 +394,7 @@ class SQLValidator:
         Returns:
             Complexity score between 0 and 1
         """
-        tokens = [token.value.upper() for token in sqlparse.parse(sql)[0].flatten()]
+        tokens = [token.value.upper() if token.value else None for token in sqlparse.parse(sql)[0].flatten()]
         
         complexity = 0.0
         
@@ -439,7 +439,7 @@ class SQLValidator:
             tables = []
             
             # Simple extraction - look for identifiers after FROM, JOIN, UPDATE, INSERT INTO
-            tokens = [token.value.upper() for token in parsed.flatten()]
+            tokens = [token.value.upper() if token.value else None for token in parsed.flatten()]
             
             for i, token in enumerate(tokens):
                 if token in ['FROM', 'JOIN', 'UPDATE', 'INTO']:
