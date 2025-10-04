@@ -121,3 +121,6 @@ docker-compose.override.yml
 
 # Cursor
 .cursor/
+
+# Playwright screenshots
+.playwright-mcp/
